@@ -1,0 +1,2 @@
+requests
+cryptography >= 39.0.0
