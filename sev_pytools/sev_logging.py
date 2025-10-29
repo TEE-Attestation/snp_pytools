@@ -1,21 +1,10 @@
-# (C) Copyright 2024 Hewlett Packard Enterprise Development LP
-# Author: Isaac Matthews <isaac@hpe.com>
-# SPDX-License-Identifier: Apache-2.0
-
-# Licensed under the Apache License, Version 2.0 (the "License"); you may
-# not use this file except in compliance with the License. You may obtain
-# a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and limitations
-# under the License.
+# Copyright 2025 Hewlett Packard Enterprise Development LP.
+# SPDX-License-Identifier: MIT
+#
+# Centralized logging configuration for sev_pytools package.
 
 """
-Logging utilities for snp_pytools
+Logging utilities for sev_pytools
 
 This module provides centralized logging configuration for both library and CLI usage.
 """
@@ -46,7 +35,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_logging(
-    name: str = "snp_pytools",
+    name: str = "sev_pytools",
     level: Union[str, int] = logging.INFO,
     cli_mode: bool = False,
     verbose: bool = False,
@@ -55,10 +44,10 @@ def setup_logging(
     format_string: Optional[str] = None,
 ) -> logging.Logger:
     """
-    Set up logging configuration for snp_pytools.
+    Set up logging configuration for sev_pytools.
 
     Args:
-        name: Logger name (default: "snp_pytools")
+        name: Logger name (default: "sev_pytools")
         level: Logging level (default: INFO)
         cli_mode: Whether running in CLI mode (affects formatting)
         verbose: Enable verbose logging (sets level to DEBUG)
@@ -123,12 +112,12 @@ def setup_logging(
     return logger
 
 
-def get_logger(name: str = "snp_pytools") -> logging.Logger:
+def get_logger(name: str = "sev_pytools") -> logging.Logger:
     """
     Get a logger instance with the given name.
 
     Args:
-        name: Logger name (default: "snp_pytools")
+        name: Logger name (default: "sev_pytools")
 
     Returns:
         Logger instance

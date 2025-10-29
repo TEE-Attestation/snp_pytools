@@ -1,7 +1,12 @@
-"""
-snp_pytools - Python tools for AMD SEV-SNP attestation
+# Copyright 2025 Hewlett Packard Enterprise Development LP.
+# SPDX-License-Identifier: MIT
+#
+# sev_pytools - Python tools for AMD SEV attestation.
 
-This package provides tools for working with AMD SEV-SNP attestation reports,
+"""
+sev_pytools - Python tools for AMD SEV attestation
+
+This package provides tools for working with AMD SEV attestation reports,
 including parsing, verification, policy validation, and certificate management.
 """
 
@@ -45,7 +50,7 @@ from .policy import (
 from .signature import Signature
 
 # Logging utilities
-from .snp_logging import (
+from .sev_logging import (
     get_logger,
     log_certificate_info,
     log_network_request,
@@ -68,7 +73,7 @@ from .verify import (
     verify_certificate_chain_with_crl,
 )
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 __author__ = "Isaac Matthews"
 
 __all__ = [

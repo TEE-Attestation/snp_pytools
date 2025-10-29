@@ -1,8 +1,13 @@
+# Copyright 2025 Hewlett Packard Enterprise Development LP.
+# SPDX-License-Identifier: MIT
+#
+# Setup configuration for sev_pytools package.
+
 from setuptools import find_packages, setup
 
 setup(
-    name="snp_pytools",
-    version="0.4.1",
+    name="sev_pytools",
+    version="0.5.0",
     packages=find_packages(),
     install_requires=[
         "requests",
@@ -10,20 +15,20 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "snp-fetch=snp_pytools.fetch:main",
-            "snp-print=snp_pytools.print_report:main",
-            "snp-verify=snp_pytools.verify:main",
+            "sev-fetch=sev_pytools.fetch:main",
+            "sev-print=sev_pytools.print_report:main",
+            "sev-verify=sev_pytools.verify:main",
         ],
     },
     description="Python tools for AMD SEV-SNP attestation",
-    url="https://github.com/Isaac-Matthews/snp_pytools",
+    url="https://github.com/TEE-Attestation/sev_pytools",
     author="Isaac Matthews",
     author_email="isaac@hpe.com",
-    license="Apache-2.0",
+    license="MIT",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
     ],
 )

@@ -1,6 +1,6 @@
-# snp_pytools
+# sev_pytools
 
-snp_pytools is a Python-based tool for verifying AMD SEV-SNP (Secure Encrypted Virtualization - Secure Nested Paging) attestation reports. This project provides functionality to parse, print, and verify attestation reports against a chain of certificates, and fetch certificates from the AMD Key Distribution Service (KDS).
+sev_pytools is a Python-based tool for verifying AMD SEV-SNP (Secure Encrypted Virtualization - Secure Nested Paging) attestation reports. This project provides functionality to parse, print, and verify attestation reports against a chain of certificates, and fetch certificates from the AMD Key Distribution Service (KDS).
 
 ## Project Structure
 
@@ -25,7 +25,7 @@ To print the details of an attestation report:
 ```
 python print_report.py -f path/to/report.bin [-d]
 ```
-or if installed with pip use `snp-print ...`.
+or if installed with pip use `sev-print ...`.
 
 - `-f` or `--file`: Path to the attestation report file (default: report.bin)
 - `-d` or `--debug`: Enable debug mode for additional output
@@ -37,7 +37,7 @@ To verify an attestation report against a certificate chain and optionally a pol
 ```
 python verify.py -f path/to/report.bin -c path/to/certs/directory [-d] [-v]
 ```
-or if installed with pip use `snp-verify ...`.
+or if installed with pip use `sev-verify ...`.
 
 - `-f` or `--file`: Path to the attestation report file (default: report.bin)
 - `-c` or `--certs`: Path to the directory containing certificates (default: ca)
@@ -111,7 +111,7 @@ The following validation rule types are supported:
 Policy validation can be used programmatically:
 
 ```python
-from snp_pytools import AttestationPolicy, AttestationReport
+from sev_pytools import AttestationPolicy, AttestationReport
 
 # Load policy from file
 policy = AttestationPolicy(policy_file="policy.json")
@@ -143,7 +143,7 @@ To fetch certificates from the AMD Key Distribution Service:
 python fetch.py ca -p PROCESSOR -e ENCODING -d DIRECTORY [--endorser {vcek,vlek}]
 python fetch.py vcek -p PROCESSOR -e ENCODING -d DIRECTORY -r REPORT_PATH
 ```
-or if installed with pip use `snp-fetch ...`.
+or if installed with pip use `sev-fetch ...`.
 
 - `ca`: Fetch ARK and ASK certificates
 - `vcek`: Fetch VCEK certificate
@@ -167,23 +167,23 @@ Available logging options:
 
 ```bash
 # Enable verbose logging (DEBUG level)
-snp-verify -f report.bin --verbose
+sev-verify -f report.bin --verbose
 
 # Enable quiet mode (WARNING level and above)
-snp-fetch ca --quiet
+sev-fetch ca --quiet
 
 # Save logs to file
-snp-print -f report.bin --log-file verification.log
+sev-print -f report.bin --log-file verification.log
 ```
 
 
 
 ### Library Logging
 
-When using snp_pytools as a library, you can configure logging to suit your application:
+When using sev_pytools as a library, you can configure logging to suit your application:
 
 ```python
-from snp_pytools import setup_library_logging, get_logger, AttestationReport
+from sev_pytools import setup_library_logging, get_logger, AttestationReport
 
 # Setup logging for library usage
 logger = setup_library_logging(level="INFO", log_file="snp_operations.log")
@@ -216,7 +216,7 @@ logger.info("Successfully parsed attestation report")
 ## Uninstallation
 1. Run pip uninstall
    ```
-   pip uninstall snp_pytools
+   pip uninstall sev_pytools
    ```
 
 ## Acknowledgments
@@ -225,3 +225,9 @@ This project is based on the AMD SEV-SNP specification and related documentation
 All the specifications used can be found here: [https://www.amd.com/en/developer/sev.html](https://www.amd.com/en/developer/sev.html)
 
 The snpguest rust tool that can be used to generate the attestation report, and that models the verification process, can be found here: [https://github.com/virtee/snpguest/tree/main](https://github.com/virtee/snpguest/tree/main)
+
+## License
+
+MIT License - Copyright 2025 Hewlett Packard Enterprise Development LP.
+
+See [LICENSE](LICENSE) file for details.
