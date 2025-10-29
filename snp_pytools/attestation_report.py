@@ -137,6 +137,8 @@ class TcbVersion:
     """
     TcbVersion
     Description: Represents the Trusted Computing Base (TCB) version information
+
+    Turin and later architectures include an FMC field, while Genoa and Milan do not.
     """
 
     bootloader: int
@@ -144,6 +146,67 @@ class TcbVersion:
     _reserved: bytes
     snp: int
     microcode: int
+    fmc: Optional[int] = None  # For Turin+ architectures
+
+    def to_bytes(self) -> bytes:
+        """
+        Convert TcbVersion to its binary representation.
+        Format depends on whether FMC field is present (Turin vs Genoa/Milan).
+        Both formats are 8 bytes total.
+        """
+        if self.fmc is not None:
+            # Turin format: FMC (7:0), Bootloader (15:8), TEE (23:16), SNP (31:24), Reserved (55:32), Microcode (63:56)
+            return struct.pack(
+                "<BBBB3sB",
+                self.fmc,
+                self.bootloader,
+                self.tee,
+                self.snp,
+                self._reserved,
+                self.microcode,
+            )
+        else:
+            # Genoa/Milan format: Bootloader (7:0), TEE (15:8), Reserved (47:16), SNP (55:48), Microcode (63:56)
+            return struct.pack(
+                "<BB4sBB",
+                self.bootloader,
+                self.tee,
+                self._reserved,
+                self.snp,
+                self.microcode,
+            )
+
+    @classmethod
+    def from_bytes(cls, data: bytes, fmc_supported: bool) -> "TcbVersion":
+        """
+        Create TcbVersion from binary data.
+
+        Args:
+            data: 8 bytes of TCB data
+            fmc_supported: Whether FMC field is supported
+        """
+        if fmc_supported:
+            # Turin+ format: FMC (7:0), Bootloader (15:8), TEE (23:16), SNP (31:24), Reserved (55:32), Microcode (63:56)
+            tcb_data = struct.unpack("<BBBB3sB", data)
+            return cls(
+                fmc=tcb_data[0],
+                bootloader=tcb_data[1],
+                tee=tcb_data[2],
+                snp=tcb_data[3],
+                _reserved=tcb_data[4],
+                microcode=tcb_data[5],
+            )
+        else:
+            # Genoa/Milan format: Bootloader (7:0), TEE (15:8), Reserved (47:16), SNP (55:48), Microcode (63:56)
+            tcb_data = struct.unpack("<BB4sBB", data)
+            return cls(
+                bootloader=tcb_data[0],
+                tee=tcb_data[1],
+                _reserved=tcb_data[2],
+                snp=tcb_data[3],
+                microcode=tcb_data[4],
+                fmc=None,
+            )
 
 
 @dataclass
@@ -199,8 +262,8 @@ class AttestationReport:
     launch_tcb: TcbVersion = None
 
     # Optional fields added in V5+
-    launch_mit_vector: Optional[int] = None
-    current_mit_vector: Optional[int] = None
+    launch_mit_vector: Optional[bytes] = None
+    current_mit_vector: Optional[bytes] = None
 
     signature: Signature = None
 
@@ -210,9 +273,29 @@ class AttestationReport:
         return self.version >= 3
 
     @property
+    def supports_tcb_fmc(self) -> bool:
+        """Check if this report version supports TCB FMC field"""
+        if self.supports_cpuid:
+            return self.cpuid.family_id >= 26
+        return False
+
+    @property
     def supports_mitigation_vectors(self) -> bool:
         """Check if this report version supports mitigation vector fields"""
         return self.version >= 5
+
+    def get_hwid(self) -> str:
+        """
+        get_hwid
+        Description: Get the hardware ID (HWID) string for the attestation report
+        Input: None
+        Output: str: HWID hex string
+        """
+        # hwID is only 8 octets for Turin+ architectures
+        if self.supports_tcb_fmc:
+            return self.chip_id[:8].hex()
+        # hwID is full 64 octets for Genoa/Milan/Siena architectures
+        return self.chip_id.hex()
 
     def to_bytes(self) -> bytes:
         """
@@ -230,14 +313,7 @@ class AttestationReport:
         data += self.image_id
         data += struct.pack("<I", self.vmpl)
         data += struct.pack("<I", self.signature_algo)
-        data += struct.pack(
-            "<BB4sBB",
-            self.current_tcb.bootloader,
-            self.current_tcb.tee,
-            self.current_tcb._reserved,
-            self.current_tcb.snp,
-            self.current_tcb.microcode,
-        )
+        data += self.current_tcb.to_bytes()
         data += struct.pack("<Q", self.platform_info._value)
         data += struct.pack("<I", self.key_info.to_u32())
         data += b"\x00\x00\x00\x00"  # reserved
@@ -248,14 +324,7 @@ class AttestationReport:
         data += self.author_key_digest
         data += self.report_id
         data += self.report_id_ma
-        data += struct.pack(
-            "<BB4sBB",
-            self.reported_tcb.bootloader,
-            self.reported_tcb.tee,
-            self.reported_tcb._reserved,
-            self.reported_tcb.snp,
-            self.reported_tcb.microcode,
-        )
+        data += self.reported_tcb.to_bytes()
 
         # Add CPUID fields for V3+ or padding for V2
         if not self.supports_cpuid:
@@ -273,14 +342,7 @@ class AttestationReport:
 
         # Add remaining common fields
         data += self.chip_id
-        data += struct.pack(
-            "<BB4sBB",
-            self.committed_tcb.bootloader,
-            self.committed_tcb.tee,
-            self.committed_tcb._reserved,
-            self.committed_tcb.snp,
-            self.committed_tcb.microcode,
-        )
+        data += self.committed_tcb.to_bytes()
         data += struct.pack(
             "<BBBBBBBB",
             self.current_version.build,
@@ -292,21 +354,13 @@ class AttestationReport:
             self.committed_version.major,
             0,
         )  # reserved
-        data += struct.pack(
-            "<BB4sBB",
-            self.launch_tcb.bootloader,
-            self.launch_tcb.tee,
-            self.launch_tcb._reserved,
-            self.launch_tcb.snp,
-            self.launch_tcb.microcode,
-        )
+        data += self.launch_tcb.to_bytes()
 
         # Add mitigation vector fields for V5 or padding for V2/V3
         if self.supports_mitigation_vectors:
             # V5 has mitigation vector fields
-            data += struct.pack(
-                "<QQ", self.launch_mit_vector or 0, self.current_mit_vector or 0
-            )
+            data += self.launch_mit_vector
+            data += self.current_mit_vector
             data += b"\x00" * 152  # reserved
         else:
             # V2/V3 doesn't have mitigation vectors, add 168 bytes of padding
@@ -360,11 +414,8 @@ class AttestationReport:
         signature_algo = struct.unpack("<I", binary_data[offset : offset + 4])[0]
         offset += 4
 
-        # Parse current TCB
-        tcb_data = struct.unpack("<BB4sBB", binary_data[offset : offset + 8])
-        current_tcb = TcbVersion(
-            tcb_data[0], tcb_data[1], tcb_data[2], tcb_data[3], tcb_data[4]
-        )
+        # Store current TCB binary data for later parsing (after CPUID is available)
+        current_tcb_data = binary_data[offset : offset + 8]
         offset += 8
 
         platform_info_value = struct.unpack("<Q", binary_data[offset : offset + 8])[0]
@@ -399,11 +450,8 @@ class AttestationReport:
         report_id_ma = binary_data[offset : offset + 32]
         offset += 32
 
-        # Parse reported TCB
-        tcb_data = struct.unpack("<BB4sBB", binary_data[offset : offset + 8])
-        reported_tcb = TcbVersion(
-            tcb_data[0], tcb_data[1], tcb_data[2], tcb_data[3], tcb_data[4]
-        )
+        # Store reported TCB binary data for later parsing
+        reported_tcb_data = binary_data[offset : offset + 8]
         offset += 8
 
         # Parse CPUID fields (version-dependent)
@@ -429,11 +477,8 @@ class AttestationReport:
         chip_id = binary_data[offset : offset + 64]
         offset += 64
 
-        # Parse committed TCB
-        tcb_data = struct.unpack("<BB4sBB", binary_data[offset : offset + 8])
-        committed_tcb = TcbVersion(
-            tcb_data[0], tcb_data[1], tcb_data[2], tcb_data[3], tcb_data[4]
-        )
+        # Store committed TCB binary data for later parsing
+        committed_tcb_data = binary_data[offset : offset + 8]
         offset += 8
 
         # Parse version fields
@@ -444,11 +489,8 @@ class AttestationReport:
         committed_version = Version(version_data[6], version_data[5], version_data[4])
         offset += 8
 
-        # Parse launch TCB
-        tcb_data = struct.unpack("<BB4sBB", binary_data[offset : offset + 8])
-        launch_tcb = TcbVersion(
-            tcb_data[0], tcb_data[1], tcb_data[2], tcb_data[3], tcb_data[4]
-        )
+        # Store launch TCB binary data for later parsing
+        launch_tcb_data = binary_data[offset : offset + 8]
         offset += 8
 
         # Parse mitigation vectors (version-dependent)
@@ -456,10 +498,8 @@ class AttestationReport:
         current_mit_vector = None
 
         if version >= 5:
-            # V5 has mitigation vector fields
-            mit_data = struct.unpack("<QQ152s", binary_data[offset : offset + 168])
-            launch_mit_vector = mit_data[0] if mit_data[0] != 0 else None
-            current_mit_vector = mit_data[1] if mit_data[1] != 0 else None
+            launch_mit_vector = binary_data[offset : offset + 8]
+            current_mit_vector = binary_data[offset + 8 : offset + 16]
             offset += 168
         else:
             # Earlier versions don't have mitigation vectors, skip 168 bytes
@@ -468,6 +508,14 @@ class AttestationReport:
         # Parse signature
         signature_data = binary_data[offset : offset + 512]
         signature = Signature.from_bytes(signature_data)
+
+        # Now that we have CPUID, determine if FMC is supported and parse all TCB data
+        fmc_supported = version >= 3 and cpuid.family_id >= 26
+
+        current_tcb = TcbVersion.from_bytes(current_tcb_data, fmc_supported)
+        reported_tcb = TcbVersion.from_bytes(reported_tcb_data, fmc_supported)
+        committed_tcb = TcbVersion.from_bytes(committed_tcb_data, fmc_supported)
+        launch_tcb = TcbVersion.from_bytes(launch_tcb_data, fmc_supported)
 
         # Create and return the AttestationReport instance
         report = cls(
@@ -537,6 +585,8 @@ class AttestationReport:
         logger.info(f"Signature Algorithm:         {self.signature_algo}")
 
         logger.info("Current TCB:")
+        if self.supports_tcb_fmc:
+            logger.info(f"  FMC:                       {self.current_tcb.fmc}")
         logger.info(f"  Bootloader:                {self.current_tcb.bootloader}")
         logger.info(f"  TEE:                       {self.current_tcb.tee}")
         logger.info(f"  Reserved:                  {self.current_tcb._reserved.hex()}")
@@ -570,6 +620,8 @@ class AttestationReport:
         logger.info(f"Report ID Migration Agent:   {self.report_id_ma.hex()}")
 
         logger.info("Reported TCB:")
+        if self.supports_tcb_fmc:
+            logger.info(f"  FMC:                       {self.reported_tcb.fmc}")
         logger.info(f"  Bootloader:                {self.reported_tcb.bootloader}")
         logger.info(f"  TEE:                       {self.reported_tcb.tee}")
         logger.info(f"  Reserved:                  {self.reported_tcb._reserved.hex()}")
@@ -600,6 +652,8 @@ class AttestationReport:
 
         if self.committed_tcb:
             logger.info("Committed TCB:")
+            if self.supports_tcb_fmc:
+                logger.info(f"  FMC:                       {self.committed_tcb.fmc}")
             logger.info(f"  Bootloader:                {self.committed_tcb.bootloader}")
             logger.info(f"  TEE:                       {self.committed_tcb.tee}")
             logger.info(
@@ -615,6 +669,8 @@ class AttestationReport:
 
         if self.launch_tcb:
             logger.info("Launch TCB:")
+            if self.supports_tcb_fmc:
+                logger.info(f"  FMC:                       {self.launch_tcb.fmc}")
             logger.info(f"  Bootloader:                {self.launch_tcb.bootloader}")
             logger.info(f"  TEE:                       {self.launch_tcb.tee}")
             logger.info(
@@ -625,12 +681,8 @@ class AttestationReport:
 
         # Mitigation vector fields (V5+ only)
         if self.supports_mitigation_vectors:
-            logger.info(
-                f"Launch Mitigation Vector:    {self.launch_mit_vector or 'None'}"
-            )
-            logger.info(
-                f"Current Mitigation Vector:   {self.current_mit_vector or 'None'}"
-            )
+            logger.info(f"Launch Mitigation Vector:    {self.launch_mit_vector.hex()}")
+            logger.info(f"Current Mitigation Vector:   {self.current_mit_vector.hex()}")
         else:
             logger.info("Mitigation Vectors:          Not supported in this version")
 
