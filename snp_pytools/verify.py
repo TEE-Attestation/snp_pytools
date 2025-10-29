@@ -32,7 +32,15 @@ from .certs import (
     verify_certificate,
     verify_crl,
 )
-from .fetch import CertFormat, Endorsement, ProcType, fetch_ca, fetch_crl, fetch_vcek
+from .fetch import (
+    CertFormat,
+    Endorsement,
+    ProcType,
+    cpuid_to_processor_type,
+    fetch_ca,
+    fetch_crl,
+    fetch_vcek,
+)
 from .policy import (
     AttestationPolicy,
     PolicyValidationError,
@@ -156,6 +164,11 @@ def verify_attestation_bytes(
     """
     report = AttestationReport.unpack(report_bytes)
 
+    # Convert processor model to enum, detect from report if possible
+    proc_type = ProcType[processor_model.upper()]
+    if report.supports_cpuid:
+        proc_type = cpuid_to_processor_type(report.cpuid)
+
     # Load certificates if not provided
     if certificates is None:
         if certificates_path is None:
@@ -171,9 +184,6 @@ def verify_attestation_bytes(
             certificates = load_certificates(certificates_path)
         except (ValueError, FileNotFoundError):
             logger.info(f"Certificates not found, fetching from AMD KDS...")
-
-            # Convert processor model to enum
-            proc_type = ProcType[processor_model.upper()]
 
             # Fetch ARK and ASK certificates
             fetch_ca(CertFormat.PEM, proc_type, certificates_path, Endorsement.VCEK)
@@ -201,9 +211,6 @@ def verify_attestation_bytes(
             crl = load_crl(certificates_path)
         except (ValueError, FileNotFoundError):
             logger.info(f"CRL not found, fetching from AMD KDS...")
-
-            # Convert processor model to enum
-            proc_type = ProcType[processor_model.upper()]
 
             # Fetch CRL
             fetch_crl(CertFormat.PEM, proc_type, certificates_path, Endorsement.VCEK)

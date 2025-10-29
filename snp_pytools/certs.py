@@ -325,7 +325,7 @@ def cert_verify_report_components(report, cert):
 
     # Check Chip ID (Hardware ID in report)
     cert_hwid = get_extension_value(cert, SnpOid.HwId.value)
-    report_hwid = report.chip_id.hex()
+    report_hwid = report.get_hwid()
 
     if cert_hwid == report_hwid:
         logger.debug("Chip ID from certificate matches the attestation report.")

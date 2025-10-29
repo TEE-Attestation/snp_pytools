@@ -43,6 +43,7 @@ class Endorsement(enum.Enum):
 
 
 class ProcType(enum.Enum):
+    TURIN = "Turin"
     MILAN = "Milan"
     GENOA = "Genoa"
     BERGAMO = "Bergamo"
@@ -98,20 +99,23 @@ def cpuid_to_processor_type(cpuid) -> ProcType:
     Output: ProcType enum value
     """
     # AMD Zen architecture family mapping
-    # Family 0x19 (25 decimal) covers most modern AMD processors
-    if cpuid.family_id == b"\x19":
+    # Family 0x19 covers Milan and Genoa
+    # Family 0x1A covers Turin
+    if cpuid.family_id == 0x19:
         # Model ID determines the specific processor generation
-        if cpuid.model_id in [b"\x00", b"\x01", b"\x08"]:  # Milan
+        if cpuid.model_id in [0x00, 0x01, 0x08]:  # Milan
             return ProcType.MILAN
-        elif cpuid.model_id in [b"\x10", b"\x11", b"\x18"]:  # Genoa
+        elif cpuid.model_id in [0x10, 0x11, 0x18]:  # Genoa
             return ProcType.GENOA
-        elif cpuid.model_id in [b"\xa0", b"\xa1"]:  # Bergamo
+        elif cpuid.model_id in [0xA0, 0xA1]:  # Bergamo
             return ProcType.BERGAMO
-        elif cpuid.model_id in [b"\xb0", b"\xb1"]:  # Siena
+        elif cpuid.model_id in [0xB0, 0xB1]:  # Siena
             return ProcType.SIENA
+    if cpuid.family_id == 0x1A:  # Turin
+        return ProcType.TURIN
 
     raise ValueError(
-        f"Unknown processor type: Family={cpuid.family_id.hex()}, Model={cpuid.model_id.hex()}, Stepping={cpuid.stepping.hex()}"
+        f"Unknown processor type: Family={cpuid.family_id}, Model={cpuid.model_id}, Stepping={cpuid.stepping}"
     )
 
 
@@ -249,7 +253,7 @@ def request_vcek_kds(
                 f"Error reading or parsing attestation report from {att_report_path}: {str(e)}"
             )
 
-    hw_id = report.chip_id.hex()
+    hw_id = report.get_hwid()
     url = (
         f"{KDS_CERT_SITE}/vcek/{KDS_VERSION}/{processor_model.to_kds_url()}/"
         f"{hw_id}?blSPL={report.reported_tcb.bootloader:02}&"
