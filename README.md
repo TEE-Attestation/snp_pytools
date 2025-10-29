@@ -1,51 +1,188 @@
 # sev_pytools
 
-sev_pytools is a Python-based tool for verifying AMD SEV-SNP (Secure Encrypted Virtualization - Secure Nested Paging) attestation reports. This project provides functionality to parse, print, and verify attestation reports against a chain of certificates, and fetch certificates from the AMD Key Distribution Service (KDS).
+A Python library and CLI tool for AMD SEV-SNP (Secure Encrypted Virtualization - Secure Nested Paging) attestation report verification. This project provides comprehensive functionality for parsing, validating, and verifying SEV-SNP attestation reports, including cryptographic signature verification, certificate chain validation, and policy-based security enforcement.
+
+## Overview
+
+AMD SEV-SNP (Secure Encrypted Virtualization - Secure Nested Paging) is a confidential computing technology that provides hardware-assisted isolation and memory encryption for virtual machines. SEV-SNP attestation reports are cryptographic evidence that prove the integrity, authenticity, and security posture of a SEV-SNP enabled system.
+
+### Key Features
+
+- **Complete Report Parsing**: Parse SEV-SNP attestation reports with detailed structure extraction
+- **Cryptographic Verification**: ECDSA signature verification for attestation report authentication
+- **Certificate Chain Validation**: Full X.509 certificate chain verification with CRL checking
+- **Policy Validation Framework**: Flexible JSON-based policy engine for security requirement enforcement
+- **AMD KDS Integration**: Automatic fetching of certificates from AMD Key Distribution Service
+- **Guest Policy Management**: Comprehensive guest policy flag interpretation and validation
+- **Platform Information**: Platform capability and feature analysis
+- **Comprehensive Logging**: Detailed verification steps with configurable logging levels
+- **CLI Tools**: Ready-to-use command-line utilities for report inspection and verification
+
+## Architecture
+
+The library is organized as follows:
+
+### Core Components
+
+- **`attestation_report.py`**: AMD SEV-SNP attestation report parsing and data structure definitions
+  - `AttestationReport`: Complete report structure parsing and representation
+  - `TcbVersion`: Trusted Computing Base version handling
+  - `Cpuid`: CPU identification and feature parsing
+
+- **`verify.py`**: Complete attestation verification pipeline
+  - Report signature verification using certificate chain
+  - Certificate chain validation to AMD root CA
+  - Policy-based validation with configurable rules
+  - Comprehensive security posture assessment
+
+### Supporting Modules
+
+- **`certs.py`**: Certificate management and verification utilities for AMD SEV-SNP attestation
+- **`guest_policy.py`**: Guest policy management and validation for AMD SEV-SNP attestation
+- **`platform_info.py`**: Platform information parsing and management for AMD SEV-SNP attestation
+- **`policy.py`**: Policy validation framework for AMD SEV-SNP attestation reports
+- **`signature.py`**: Digital signature handling for AMD SEV-SNP attestation reports
+- **`fetch.py`**: Certificate fetching utilities for AMD SEV-SNP attestation reports
+- **`print_report.py`**: Command-line utility for displaying AMD SEV-SNP attestation report details
+- **`sev_logging.py`**: Centralized logging configuration for sev_pytools package
 
 ## Project Structure
 
-The project consists of the following main components:
+## Installation
 
-1. `attestation_report.py`: Defines the `AttestationReport` class for parsing and representing attestation reports, along with the `TcbVersion` and `Cpuid` dataclasses.
-2. `certs.py`: Handles certificate loading, verification, and printing.
-3. `guest_policy.py`: Defines the `GuestPolicy` class for managing guest policy information.
-4. `platform_info.py`: Defines the `PlatformInfo` class for managing platform information.
-5. `signature.py`: Defines the `Signature` class for handling cryptographic signatures.
-6. `policy.py`: Provides the `AttestationPolicy` class for validating attestation reports against security policies.
-7. `print_report.py`: Command-line tool for printing attestation report details.
-8. `verify.py`: Main verification script that checks the attestation report against the certificate chain.
-9. `fetch.py`: Tool for fetching certificates (ARK, ASK, VCEK) from the AMD Key Distribution Service.
+### Requirements
+
+- Python 3.6+
+- Dependencies (automatically installed):
+  - `cryptography >= 39.0.0`
+  - `requests >= 2.25.0`
+
+### Install from Source
+
+```bash
+git clone https://github.com/TEE-Attestation/sev_pytools.git
+cd sev_pytools
+pip install .
+```
+
+### Uninstallation
+
+```bash
+pip uninstall sev_pytools
+```
 
 ## Usage
 
-### Printing an Attestation Report
+### Command Line Tools
 
-To print the details of an attestation report:
+#### Print Attestation Report Details
 
+Display the contents of an AMD SEV-SNP attestation report in human-readable format:
+
+```bash
+# Using the installed command
+sev-print -f report.bin
+
+# With debug output for detailed parsing information
+sev-print -f report.bin -d
+
+# Using Python module directly
+python -m sev_pytools.print_report -f report.bin
 ```
-python print_report.py -f path/to/report.bin [-d]
+
+**Options:**
+- `-f, --file`: Path to the attestation report file (default: `report.bin`)
+- `-d, --debug`: Enable debug mode for additional output
+
+#### Verify Attestation Report Authenticity
+
+Perform complete cryptographic verification of an AMD SEV-SNP attestation report:
+
+```bash
+# Basic verification
+sev-verify -f report.bin -c ./certs/
+
+# Verbose verification with detailed steps
+sev-verify -f report.bin -c ./certs/ -v
+
+# Show report data after successful verification
+sev-verify -f report.bin -c ./certs/ -r
+
+# With policy validation
+sev-verify -f report.bin -c ./certs/ -q policy.json
 ```
-or if installed with pip use `sev-print ...`.
 
-- `-f` or `--file`: Path to the attestation report file (default: report.bin)
-- `-d` or `--debug`: Enable debug mode for additional output
+**Options:**
+- `-f, --file`: Path to the attestation report file (default: `report.bin`)
+- `-c, --certs`: Path to the directory containing certificates (default: `ca`)
+- `-d, --debug`: Enable debug mode for additional output (automatically enables verbose mode)
+- `-v, --verbose`: Enable verbose mode for detailed information
+- `-r, --reportdata`: Print report data at the end of successful verification
+- `-p, --processor`: Processor model (e.g., milan, genoa) used only if no certificates found (default: `genoa`)
+- `-q, --policy`: Path to the policy file for validating the report against security policies (optional)
 
-### Verifying an Attestation Report
+#### Fetch Certificates from AMD KDS
 
-To verify an attestation report against a certificate chain and optionally a policy:
+Retrieve certificates from the AMD Key Distribution Service:
 
+```bash
+# Fetch ARK and ASK certificates
+sev-fetch ca -p genoa -e PEM -d ./certs/
+
+# Fetch VCEK certificate for a specific report
+sev-fetch vcek -p genoa -e PEM -d ./certs/ -r report.bin
 ```
-python verify.py -f path/to/report.bin -c path/to/certs/directory [-d] [-v]
-```
-or if installed with pip use `sev-verify ...`.
 
-- `-f` or `--file`: Path to the attestation report file (default: report.bin)
-- `-c` or `--certs`: Path to the directory containing certificates (default: ca)
-- `-d` or `--debug`: Enable debug mode for additional output (automatically enables verbose mode)
-- `-v` or `--verbose`: Enable verbose mode for detailed information
-- `-r` or `--reportdata`: Print report data at the end of successful verification
-- `-p` or `--processor`: Processor model (e.g., milan, genoa) used only if no certificates found (default: genoa)
-- `-q` or `--policy`: Path to the policy file for validating the report against security policies (optional)
+**Options:**
+- `ca`: Fetch ARK and ASK certificates
+- `vcek`: Fetch VCEK certificate
+- `-p, --processor`: Processor model (e.g., milan, genoa) (default: `genoa`)
+- `-e, --encoding`: Certificate encoding format (PEM or DER)
+- `-d, --directory`: Directory to save the fetched certificates
+- `--endorser`: Endorser type (vcek or vlek) for fetching VCEK or VLEK certificates
+- `-r, --report`: Path to the attestation report file (required for fetching VCEK)
+
+### Python API
+
+#### Basic Report Parsing
+
+```python
+from sev_pytools import AttestationReport
+
+# Load and parse an attestation report
+with open('report.bin', 'rb') as f:
+    report_data = f.read()
+
+report = AttestationReport.unpack(report_data)
+
+# Access report components
+print(f"Report version: {report.version}")
+print(f"Guest SVN: {report.guest_svn}")
+print(f"Policy: {report.policy}")
+
+# Display report details
+report.log_details()
+```
+
+#### Complete Report Verification
+
+```python
+from sev_pytools.verify import verify_report
+from sev_pytools import AttestationReport
+
+# Load report
+with open('report.bin', 'rb') as f:
+    report_data = f.read()
+
+report = AttestationReport.unpack(report_data)
+
+# Verify report (will auto-fetch certificates if needed)
+try:
+    verify_report(report, certs_dir='./certs/', verbose=True)
+    print("Report verification successful!")
+except Exception as e:
+    print(f"Verification failed: {e}")
+```
 
 ### Policy Validation
 
@@ -135,6 +272,29 @@ python verify.py -f path/to/report.bin -c path/to/certs/directory -q path/to/pol
 
 This will perform both cryptographic verification of the attestation report and validate it against the specified policy file.
 
+## Certificate Management
+
+### Automatic Certificate Fetching
+
+By default, the library automatically fetches certificates from AMD's Key Distribution Service (KDS):
+
+- AMD Root Key (ARK) Certificate
+- AMD SEV Signing Key (ASK) Certificate  
+- Versioned Chip Endorsement Key (VCEK) Certificate
+- Certificate Revocation List (CRL)
+
+### Local Certificate Storage
+
+For offline verification or to avoid network requests, certificates are stored locally:
+
+```
+certs/
+├── ark.pem          # AMD Root Key
+├── ask.pem          # AMD SEV Signing Key
+├── crl.pem          # AMD CRL
+└── vcek.pem         # Versioned Chip Endorsement Key
+```
+
 ### Fetching Certificates
 
 To fetch certificates from the AMD Key Distribution Service:
@@ -186,7 +346,7 @@ When using sev_pytools as a library, you can configure logging to suit your appl
 from sev_pytools import setup_library_logging, get_logger, AttestationReport
 
 # Setup logging for library usage
-logger = setup_library_logging(level="INFO", log_file="snp_operations.log")
+logger = setup_library_logging(level="INFO", log_file="sev_operations.log")
 
 # Use the logger
 logger.info("Starting attestation report processing")
@@ -201,23 +361,32 @@ logger.info("Successfully parsed attestation report")
 
 ## Requirements
 
-- Python 3.6+
-- cryptography library >= 39.0.0
-- requests library
-
 ## Installation
 
-1. Clone the repository
-2. Move into root directory and install
-   ```
-   pip install .
-   ```
+### Requirements
 
-## Uninstallation
-1. Run pip uninstall
-   ```
-   pip uninstall sev_pytools
-   ```
+- Python 3.6+
+- Dependencies (automatically installed):
+  - `cryptography >= 39.0.0`
+  - `requests >= 2.25.0`
+
+### Install from Source
+
+```bash
+git clone https://github.com/TEE-Attestation/sev_pytools.git
+cd sev_pytools
+pip install .
+```
+
+### Uninstallation
+
+```bash
+pip uninstall sev_pytools
+```
+
+## Contributing
+
+Contributions are welcome! Please follow the contribution guidelines in the [TAS repository](https://github.com/TEE-Attestation/tas/blob/main/CONTRIBUTING.md).
 
 ## Acknowledgments
 
